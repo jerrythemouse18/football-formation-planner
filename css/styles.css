@@ -264,6 +264,8 @@ body {
     justify-content: center;
     padding: 20px;
     overflow: hidden;
+    touch-action: none;
+    -webkit-overflow-scrolling: auto;
 }
 
 #pitch-canvas {
@@ -286,6 +288,8 @@ body {
     position: absolute;
     z-index: 3;
     pointer-events: none;
+    touch-action: none;
+    -webkit-touch-callout: none;
 }
 
 /* === Player Nodes === */
@@ -304,6 +308,9 @@ body {
     transition: transform 0.1s ease, box-shadow 0.2s ease;
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    -webkit-touch-callout: none;
     transform: translate(-50%, -50%);
 }
 
@@ -424,25 +431,166 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
 
-/* === Responsive === */
+/* === Mobile === */
+
+/* Prevent overscroll/bounce on iOS */
+html, body {
+    overscroll-behavior: none;
+}
+
+/* Mobile toggle button (hidden on desktop) */
+.mobile-toggle {
+    display: none;
+    padding: 8px 14px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
 @media (max-width: 768px) {
+    body {
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
+
+    .header {
+        padding: 8px 12px;
+    }
+    .header h1 {
+        font-size: 1rem;
+    }
+    .header-actions .btn-secondary {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+    }
+
+    .mobile-toggle {
+        display: inline-flex;
+    }
+
     .main-layout {
         flex-direction: column;
-        height: auto;
+        height: calc(100vh - 49px);
+        height: calc(100dvh - 49px);
+        overflow: hidden;
     }
+
+    /* Pitch takes full available space */
+    .pitch-container {
+        flex: 1;
+        padding: 8px;
+        min-height: 0;
+    }
+
+    /* Sidebar becomes a slide-up panel */
     .sidebar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
         width: 100%;
         min-width: unset;
-        flex-direction: row;
-        flex-wrap: wrap;
-        overflow-y: visible;
-        max-height: none;
+        max-height: 55vh;
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border);
         border-right: none;
-        border-bottom: 1px solid var(--border);
+        border-radius: 16px 16px 0 0;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        z-index: 50;
+        overflow-y: auto;
+        padding: 16px;
+        padding-top: 8px;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+        flex-direction: column;
     }
-    .sidebar .panel { flex: 1; min-width: 200px; }
+    .sidebar.open {
+        transform: translateY(0);
+    }
+
+    /* Drag handle for the panel */
+    .sidebar::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+        margin: 4px auto 12px;
+    }
+
+    .sidebar .panel {
+        min-width: unset;
+    }
+
+    /* Larger touch targets for player nodes */
+    .player-node {
+        width: 46px;
+        height: 46px;
+        font-size: 0.8rem;
+    }
+    .player-node .player-label {
+        font-size: 0.6rem;
+        bottom: -16px;
+    }
+
+    /* Tool buttons bigger on mobile */
+    .btn-tool {
+        padding: 10px 14px;
+        font-size: 1.1rem;
+    }
+
+    /* Player edit popup - center on mobile */
+    .player-edit-popup {
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%);
+        width: 250px;
+    }
+
+    /* Hide player list on mobile (saves space) */
+    .sidebar .panel:last-child {
+        display: none;
+    }
+}
+
+/* Small phones (iPhone SE, etc.) */
+@media (max-width: 390px) {
+    .header h1 { font-size: 0.9rem; }
+    .header-actions .btn { padding: 5px 8px; font-size: 0.7rem; }
+    .player-node { width: 42px; height: 42px; }
+}
+
+/* Landscape mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+    .main-layout {
+        flex-direction: row;
+        height: calc(100vh - 49px);
+        height: calc(100dvh - 49px);
+    }
+    .sidebar {
+        position: fixed;
+        right: 0;
+        top: 49px;
+        bottom: 0;
+        left: auto;
+        width: 260px;
+        max-height: none;
+        border-radius: 0;
+        border-top: none;
+        border-left: 1px solid var(--border);
+        transform: translateX(100%);
+    }
+    .sidebar.open {
+        transform: translateX(0);
+    }
+    .sidebar::before { display: none; }
     .pitch-container {
-        height: 60vh;
-        padding: 10px;
+        padding: 6px;
     }
 }

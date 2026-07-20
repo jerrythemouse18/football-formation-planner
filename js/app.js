@@ -52,6 +52,23 @@ const App = {
     },
 
     _bindControls() {
+        // Mobile panel toggle
+        const panelBtn = document.getElementById('btn-panel');
+        const sidebar = document.querySelector('.sidebar');
+        if (panelBtn) {
+            panelBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+                panelBtn.textContent = sidebar.classList.contains('open') ? '✕ Close' : '⚙️ Controls';
+            });
+            // Close panel when tapping pitch area on mobile
+            document.querySelector('.pitch-container').addEventListener('click', (e) => {
+                if (sidebar.classList.contains('open') && window.innerWidth <= 768) {
+                    sidebar.classList.remove('open');
+                    panelBtn.textContent = '⚙️ Controls';
+                }
+            });
+        }
+
         // Player count
         const countInput = document.getElementById('player-count');
         countInput.addEventListener('change', () => {
