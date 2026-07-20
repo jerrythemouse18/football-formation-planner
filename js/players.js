@@ -63,7 +63,6 @@ const Players = {
      */
     render(colors) {
         this.overlay.innerHTML = '';
-        const { offsetX, offsetY } = Pitch.getDimensions();
 
         this.players.forEach((player, i) => {
             const node = document.createElement('div');
@@ -73,8 +72,8 @@ const Players = {
             const bgColor = player.isGK ? colors.gk : colors.jersey;
             node.style.backgroundColor = bgColor;
             node.style.color = colors.text;
-            node.style.left = (player.x + offsetX) + 'px';
-            node.style.top = (player.y + offsetY) + 'px';
+            node.style.left = player.x + 'px';
+            node.style.top = player.y + 'px';
             
             node.textContent = player.number;
 
@@ -101,14 +100,13 @@ const Players = {
      * Re-position nodes without full re-render (for resize)
      */
     reposition() {
-        const { offsetX, offsetY } = Pitch.getDimensions();
         const nodes = this.overlay.querySelectorAll('.player-node');
         nodes.forEach((node) => {
             const id = parseInt(node.dataset.id);
             const player = this.players[id];
             if (player) {
-                node.style.left = (player.x + offsetX) + 'px';
-                node.style.top = (player.y + offsetY) + 'px';
+                node.style.left = player.x + 'px';
+                node.style.top = player.y + 'px';
             }
         });
     },
@@ -144,7 +142,7 @@ const Players = {
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-            const { offsetX, offsetY, width, height } = Pitch.getDimensions();
+            const { width, height } = Pitch.getDimensions();
 
             // Calculate new position relative to pitch
             let newX = this.players[playerId].x + (clientX - startX);
@@ -157,8 +155,8 @@ const Players = {
             this.players[playerId].x = newX;
             this.players[playerId].y = newY;
             
-            node.style.left = (newX + offsetX) + 'px';
-            node.style.top = (newY + offsetY) + 'px';
+            node.style.left = newX + 'px';
+            node.style.top = newY + 'px';
 
             startX = clientX;
             startY = clientY;
