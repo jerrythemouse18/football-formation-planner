@@ -55,19 +55,44 @@ const App = {
         // Mobile panel toggle
         const panelBtn = document.getElementById('btn-panel');
         const sidebar = document.querySelector('.sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+
+        const openPanel = () => {
+            sidebar.classList.add('open');
+            backdrop.classList.add('visible');
+            panelBtn.textContent = '✕ Close';
+        };
+        const closePanel = () => {
+            sidebar.classList.remove('open');
+            backdrop.classList.remove('visible');
+            panelBtn.textContent = '⚙️ Controls';
+        };
+
         if (panelBtn) {
             panelBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('open');
-                panelBtn.textContent = sidebar.classList.contains('open') ? '✕ Close' : '⚙️ Controls';
-            });
-            // Close panel when tapping pitch area on mobile
-            document.querySelector('.pitch-container').addEventListener('click', (e) => {
-                if (sidebar.classList.contains('open') && window.innerWidth <= 768) {
-                    sidebar.classList.remove('open');
-                    panelBtn.textContent = '⚙️ Controls';
+                if (sidebar.classList.contains('open')) {
+                    closePanel();
+                } else {
+                    openPanel();
                 }
             });
+            // Close panel when tapping backdrop
+            if (backdrop) {
+                backdrop.addEventListener('click', closePanel);
+            }
         }
+
+        // Mobile action buttons (mirror desktop header buttons)
+        const mobileUndo = document.getElementById('btn-undo-mobile');
+        const mobileRedo = document.getElementById('btn-redo-mobile');
+        const mobileSave = document.getElementById('btn-save-mobile');
+        const mobileLoad = document.getElementById('btn-load-mobile');
+        const mobileExport = document.getElementById('btn-export-mobile');
+        if (mobileUndo) mobileUndo.addEventListener('click', () => this.undo());
+        if (mobileRedo) mobileRedo.addEventListener('click', () => this.redo());
+        if (mobileSave) mobileSave.addEventListener('click', () => this._showSaveDialog());
+        if (mobileLoad) mobileLoad.addEventListener('click', () => this._showLoadDialog());
+        if (mobileExport) mobileExport.addEventListener('click', () => this._exportPNG());
 
         // Player count
         const countInput = document.getElementById('player-count');

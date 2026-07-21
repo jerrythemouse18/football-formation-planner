@@ -16,18 +16,28 @@
         <header class="header">
             <h1>⚽ Formation Planner</h1>
             <div class="header-actions">
-                <button id="btn-undo" class="btn btn-icon" title="Undo (Ctrl+Z)" disabled>↶</button>
-                <button id="btn-redo" class="btn btn-icon" title="Redo (Ctrl+Y)" disabled>↷</button>
-                <button id="btn-save" class="btn btn-secondary">💾 Save</button>
-                <button id="btn-load" class="btn btn-secondary">📂 Load</button>
-                <button id="btn-export" class="btn btn-primary">📷 Export PNG</button>
+                <button id="btn-undo" class="btn btn-icon mobile-hide" title="Undo (Ctrl+Z)" disabled>↶</button>
+                <button id="btn-redo" class="btn btn-icon mobile-hide" title="Redo (Ctrl+Y)" disabled>↷</button>
+                <button id="btn-save" class="btn btn-secondary mobile-hide">💾 Save</button>
+                <button id="btn-load" class="btn btn-secondary mobile-hide">📂 Load</button>
+                <button id="btn-export" class="btn btn-primary mobile-hide">📷 Export PNG</button>
                 <button id="btn-panel" class="mobile-toggle">⚙️ Controls</button>
             </div>
         </header>
 
         <div class="main-layout">
+            <!-- Backdrop for mobile panel -->
+            <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
             <!-- Sidebar -->
             <aside class="sidebar">
+                <!-- Mobile-only action buttons (save/load/export/undo/redo) -->
+                <div class="mobile-panel-actions">
+                    <button id="btn-undo-mobile" class="btn btn-secondary">↶ Undo</button>
+                    <button id="btn-redo-mobile" class="btn btn-secondary">↷ Redo</button>
+                    <button id="btn-save-mobile" class="btn btn-secondary">💾 Save</button>
+                    <button id="btn-load-mobile" class="btn btn-secondary">📂 Load</button>
+                    <button id="btn-export-mobile" class="btn btn-primary">📷 Export</button>
+                </div>
                 <!-- Formation Controls -->
                 <section class="panel">
                     <h3>Formation</h3>

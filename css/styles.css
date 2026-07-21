@@ -441,13 +441,29 @@ html, body {
 /* Mobile toggle button (hidden on desktop) */
 .mobile-toggle {
     display: none;
-    padding: 8px 14px;
-    background: var(--bg-panel);
-    border: 1px solid var(--border);
+    padding: 10px 16px;
+    background: var(--accent);
+    border: none;
     border-radius: var(--radius);
-    color: var(--text-primary);
-    font-size: 0.85rem;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
     cursor: pointer;
+}
+
+/* Desktop-only buttons hidden on mobile */
+.mobile-hide {
+    display: inline-flex;
+}
+
+/* Mobile panel actions hidden on desktop */
+.mobile-panel-actions {
+    display: none;
+}
+
+/* Backdrop hidden on desktop */
+.sidebar-backdrop {
+    display: none;
 }
 
 @media (max-width: 768px) {
@@ -464,9 +480,10 @@ html, body {
     .header h1 {
         font-size: 1rem;
     }
-    .header-actions .btn-secondary {
-        padding: 6px 10px;
-        font-size: 0.75rem;
+
+    /* Hide undo/redo/save/load/export on mobile header — they're in the panel */
+    .mobile-hide {
+        display: none !important;
     }
 
     .mobile-toggle {
@@ -495,22 +512,36 @@ html, body {
         right: 0;
         width: 100%;
         min-width: unset;
-        max-height: 55vh;
+        max-height: 70vh;
         background: var(--bg-secondary);
         border-top: 1px solid var(--border);
         border-right: none;
         border-radius: 16px 16px 0 0;
         transform: translateY(100%);
         transition: transform 0.3s ease;
-        z-index: 50;
+        z-index: 200;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         padding: 16px;
         padding-top: 8px;
+        padding-bottom: 40px;
         box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
         flex-direction: column;
     }
     .sidebar.open {
         transform: translateY(0);
+    }
+
+    /* Backdrop overlay when panel is open */
+    .sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 199;
+    }
+    .sidebar-backdrop.visible {
+        display: block;
     }
 
     /* Drag handle for the panel */
@@ -522,10 +553,24 @@ html, body {
         background: var(--border);
         border-radius: 2px;
         margin: 4px auto 12px;
+        flex-shrink: 0;
     }
 
     .sidebar .panel {
         min-width: unset;
+    }
+
+    /* Mobile action buttons inside panel */
+    .mobile-panel-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 8px 0 4px;
+    }
+    .mobile-panel-actions .btn {
+        flex: 1;
+        min-width: 80px;
+        justify-content: center;
     }
 
     /* Larger touch targets for player nodes */
@@ -557,12 +602,20 @@ html, body {
     .sidebar .panel:last-child {
         display: none;
     }
+
+    /* Inputs larger on mobile for easier tapping */
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group select {
+        padding: 10px 12px;
+        font-size: 16px; /* prevents iOS zoom on focus */
+    }
 }
 
 /* Small phones (iPhone SE, etc.) */
 @media (max-width: 390px) {
     .header h1 { font-size: 0.9rem; }
-    .header-actions .btn { padding: 5px 8px; font-size: 0.7rem; }
+    .mobile-toggle { padding: 8px 12px; font-size: 0.8rem; }
     .player-node { width: 42px; height: 42px; }
 }
 
