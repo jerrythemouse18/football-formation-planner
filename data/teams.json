@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "activeTeam": "team-1",
+  "teams": [
+    {
+      "id": "team-1",
+      "name": "Team A",
+      "colors": { "jersey": "#e74c3c", "text": "#ffffff", "gk": "#f39c12" },
+      "formation": "4-3-3",
+      "players": [
+        { "number": 1, "name": "", "role": "GK" },
+        { "number": 2, "name": "", "role": "CB" },
+        { "number": 3, "name": "", "role": "CB" },
+        { "number": 4, "name": "", "role": "CB" },
+        { "number": 5, "name": "", "role": "WB" },
+        { "number": 6, "name": "", "role": "CM" },
+        { "number": 7, "name": "", "role": "CM" },
+        { "number": 8, "name": "", "role": "CM" },
+        { "number": 9, "name": "", "role": "LW" },
+        { "number": 10, "name": "", "role": "ST" },
+        { "number": 11, "name": "", "role": "RW" }
+      ]
+    }
+  ]
+}

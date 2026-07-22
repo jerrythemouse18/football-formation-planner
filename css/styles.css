@@ -647,3 +647,44 @@ html, body {
         padding: 6px;
     }
 }
+
+/* === Toast Notification === */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    padding: 12px 24px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    z-index: 9999;
+    pointer-events: none;
+    max-width: 90vw;
+    text-align: center;
+}
+.toast.visible {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+/* === Danger Button === */
+.btn-danger {
+    background: #c0392b;
+    color: white;
+    border: none;
+}
+.btn-danger:hover {
+    background: #e74c3c;
+}
+
+/* === Team Select Row === */
+#team-select {
+    flex: 1;
+    min-width: 0;
+}

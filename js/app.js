@@ -1,5 +1,5 @@
 /**
- * app.js - Main application controller
+ * app.js - Main application controller (multi-team support)
  */
 
 const App = {
@@ -8,6 +8,10 @@ const App = {
     historyIndex: -1,
     maxHistory: 50,
     onDrawingChange: null,
+
+    // Team state
+    teams: [],
+    activeTeamId: null,
 
     colors: {
         jersey: '#e74c3c',
@@ -24,22 +28,191 @@ const App = {
         // Setup overlay positioning
         this._syncOverlay();
 
-        // Load default formation
-        this._populateFormationSelect(11);
-        this._applyFormation([4, 3, 3]);
-
         // Bind events
         this._bindControls();
         this._bindKeyboard();
         this._bindResize();
 
         // Track position changes for undo
-        Players.onPositionChange = () => this._saveState();
+        Players.onPositionChange = () => {
+            this._saveState();
+            this._persistTeams();
+        };
         this.onDrawingChange = () => this._saveState();
 
-        // Initial state
+        // Load teams (async — sets up formations after)
+        this._loadTeams();
+    },
+
+    // === Team Management ===
+
+    async _loadTeams() {
+        const result = await Sync.load();
+        if (result && result.data && result.data.teams && result.data.teams.length > 0) {
+            this.teams = result.data.teams;
+            this.activeTeamId = result.data.activeTeam || this.teams[0].id;
+        } else {
+            // Default: one empty team
+            this.teams = [{
+                id: Sync.generateId(),
+                name: 'Team A',
+                colors: { jersey: '#e74c3c', text: '#ffffff', gk: '#f39c12' },
+                formation: '4-3-3',
+                playerCount: 11,
+                players: [],
+            }];
+            this.activeTeamId = this.teams[0].id;
+        }
+
+        this._populateTeamSelect();
+        this._switchToTeam(this.activeTeamId);
+        this._persistTeams();
+    },
+
+    _getActiveTeam() {
+        return this.teams.find(t => t.id === this.activeTeamId) || this.teams[0];
+    },
+
+    _populateTeamSelect() {
+        const select = document.getElementById('team-select');
+        select.innerHTML = this.teams.map(t =>
+            `<option value="${t.id}" ${t.id === this.activeTeamId ? 'selected' : ''}>${t.name}</option>`
+        ).join('');
+    },
+
+    _switchToTeam(teamId) {
+        // Save current team state before switching
+        this._saveCurrentTeamState();
+
+        this.activeTeamId = teamId;
+        const team = this._getActiveTeam();
+
+        // Apply team colors
+        this.colors = { ...team.colors };
+        document.getElementById('jersey-color').value = this.colors.jersey;
+        document.getElementById('text-color').value = this.colors.text;
+        document.getElementById('gk-color').value = this.colors.gk;
+        document.getElementById('team-name').value = team.name;
+
+        // Apply formation
+        const playerCount = team.playerCount || 11;
+        document.getElementById('player-count').value = playerCount;
+        this._populateFormationSelect(playerCount);
+
+        // Parse formation to get lines
+        const formationStr = team.formation || '4-3-3';
+        const parsed = Formations.parseCustom(formationStr);
+        let lines = [4, 3, 3];
+        if (parsed.valid) {
+            lines = parsed.lines;
+            // Select matching preset
+            const formations = Formations.getFormations(playerCount);
+            const matchIdx = formations.findIndex(f => f.name === formationStr);
+            if (matchIdx >= 0) {
+                document.getElementById('formation-select').value = matchIdx;
+            }
+        }
+
+        // Generate positions
+        const { width, height } = Pitch.getDimensions();
+        const positions = Formations.generatePositions(lines, width, height);
+
+        // Apply saved player data (names, numbers, roles) over generated positions
+        if (team.players && team.players.length > 0) {
+            positions.forEach((pos, i) => {
+                if (team.players[i]) {
+                    if (team.players[i].name) pos.name = team.players[i].name;
+                    if (team.players[i].number) pos.number = team.players[i].number;
+                    if (team.players[i].role) pos.role = team.players[i].role;
+                }
+            });
+        }
+
+        Players.setPlayers(positions, this.colors);
+        this._updatePlayerList();
+
+        // Clear drawings when switching teams
+        Drawing.clear();
+
+        // Update team select
+        document.getElementById('team-select').value = teamId;
+
+        // Reset history for new team context
+        this.history = [];
+        this.historyIndex = -1;
         this._saveState();
     },
+
+    _saveCurrentTeamState() {
+        if (!this.activeTeamId) return;
+        const team = this._getActiveTeam();
+        if (!team) return;
+
+        team.name = document.getElementById('team-name').value || team.name;
+        team.colors = { ...this.colors };
+        team.playerCount = parseInt(document.getElementById('player-count').value) || 11;
+        
+        const formSelect = document.getElementById('formation-select');
+        const count = team.playerCount;
+        const formations = Formations.getFormations(count);
+        const idx = parseInt(formSelect.value) || 0;
+        if (formations[idx]) {
+            team.formation = formations[idx].name;
+        }
+
+        // Save player names/numbers/roles
+        team.players = Players.players.map(p => ({
+            number: p.number,
+            name: p.name || '',
+            role: p.role || '',
+        }));
+    },
+
+    _addTeam() {
+        const name = prompt('New team name:', `Team ${String.fromCharCode(65 + this.teams.length)}`);
+        if (!name) return;
+
+        const newTeam = {
+            id: Sync.generateId(),
+            name,
+            colors: { jersey: '#3498db', text: '#ffffff', gk: '#f39c12' },
+            formation: '4-3-3',
+            playerCount: 11,
+            players: [],
+        };
+
+        this.teams.push(newTeam);
+        this._populateTeamSelect();
+        this._switchToTeam(newTeam.id);
+        this._persistTeams();
+        this._showToast(`Team "${name}" created`);
+    },
+
+    _deleteTeam() {
+        if (this.teams.length <= 1) {
+            this._showToast('Cannot delete the only team');
+            return;
+        }
+        const team = this._getActiveTeam();
+        if (!confirm(`Delete team "${team.name}"?`)) return;
+
+        this.teams = this.teams.filter(t => t.id !== this.activeTeamId);
+        this.activeTeamId = this.teams[0].id;
+        this._populateTeamSelect();
+        this._switchToTeam(this.activeTeamId);
+        this._persistTeams();
+        this._showToast('Team deleted');
+    },
+
+    _persistTeams() {
+        this._saveCurrentTeamState();
+        Sync.save({
+            activeTeam: this.activeTeamId,
+            teams: this.teams,
+        });
+    },
+
+    // === Formation ===
 
     _syncOverlay() {
         const { width, height, offsetX, offsetY } = Pitch.getDimensions();
@@ -70,19 +243,12 @@ const App = {
 
         if (panelBtn) {
             panelBtn.addEventListener('click', () => {
-                if (sidebar.classList.contains('open')) {
-                    closePanel();
-                } else {
-                    openPanel();
-                }
+                sidebar.classList.contains('open') ? closePanel() : openPanel();
             });
-            // Close panel when tapping backdrop
-            if (backdrop) {
-                backdrop.addEventListener('click', closePanel);
-            }
+            if (backdrop) backdrop.addEventListener('click', closePanel);
         }
 
-        // Mobile action buttons (mirror desktop header buttons)
+        // Mobile action buttons
         const mobileUndo = document.getElementById('btn-undo-mobile');
         const mobileRedo = document.getElementById('btn-redo-mobile');
         const mobileSave = document.getElementById('btn-save-mobile');
@@ -94,21 +260,35 @@ const App = {
         if (mobileLoad) mobileLoad.addEventListener('click', () => this._showLoadDialog());
         if (mobileExport) mobileExport.addEventListener('click', () => this._exportPNG());
 
-        // Player count
+        // === Team controls ===
+        document.getElementById('team-select').addEventListener('change', (e) => {
+            this._switchToTeam(e.target.value);
+            this._persistTeams();
+        });
+        document.getElementById('btn-add-team').addEventListener('click', () => this._addTeam());
+        document.getElementById('btn-delete-team').addEventListener('click', () => this._deleteTeam());
+
+        document.getElementById('team-name').addEventListener('change', () => {
+            const team = this._getActiveTeam();
+            team.name = document.getElementById('team-name').value;
+            this._populateTeamSelect();
+            document.getElementById('team-select').value = this.activeTeamId;
+            this._persistTeams();
+        });
+
+        // === Formation controls ===
         const countInput = document.getElementById('player-count');
         countInput.addEventListener('change', () => {
-            const count = parseInt(countInput.value) || 11;
-            const clamped = Math.max(1, Math.min(11, count));
-            countInput.value = clamped;
-            this._populateFormationSelect(clamped);
-            // Auto-apply first formation
-            const formations = Formations.getFormations(clamped);
+            const count = Math.max(1, Math.min(11, parseInt(countInput.value) || 11));
+            countInput.value = count;
+            this._populateFormationSelect(count);
+            const formations = Formations.getFormations(count);
             if (formations.length > 0) {
                 this._applyFormation(formations[0].lines);
             }
+            this._persistTeams();
         });
 
-        // Formation select
         const formSelect = document.getElementById('formation-select');
         formSelect.addEventListener('change', () => {
             const idx = parseInt(formSelect.value);
@@ -116,6 +296,7 @@ const App = {
             const formations = Formations.getFormations(count);
             if (formations[idx]) {
                 this._applyFormation(formations[idx].lines);
+                this._persistTeams();
             }
         });
 
@@ -127,20 +308,17 @@ const App = {
                 countInput.value = result.total;
                 this._populateFormationSelect(result.total);
                 this._applyFormation(result.lines);
-                // Try to select matching preset
                 const formations = Formations.getFormations(result.total);
                 const matchIdx = formations.findIndex(f => f.name === result.name);
                 if (matchIdx >= 0) formSelect.value = matchIdx;
+                this._persistTeams();
             } else {
                 alert(result.error);
             }
         });
 
-        // Enter key on custom formation input
         document.getElementById('formation-custom').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                document.getElementById('btn-apply-custom').click();
-            }
+            if (e.key === 'Enter') document.getElementById('btn-apply-custom').click();
         });
 
         // Reset positions
@@ -150,29 +328,28 @@ const App = {
             const idx = parseInt(formSelect.value) || 0;
             if (formations[idx]) {
                 this._applyFormation(formations[idx].lines);
+                this._persistTeams();
             }
         });
 
-        // Colors
+        // === Colors ===
         document.getElementById('jersey-color').addEventListener('input', (e) => {
             this.colors.jersey = e.target.value;
             this._rerenderPlayers();
+            this._persistTeams();
         });
         document.getElementById('text-color').addEventListener('input', (e) => {
             this.colors.text = e.target.value;
             this._rerenderPlayers();
+            this._persistTeams();
         });
         document.getElementById('gk-color').addEventListener('input', (e) => {
             this.colors.gk = e.target.value;
             this._rerenderPlayers();
+            this._persistTeams();
         });
 
-        // Team name (cosmetic, used in save/export)
-        document.getElementById('team-name').addEventListener('change', () => {
-            this._saveState();
-        });
-
-        // Drawing tools
+        // === Drawing tools ===
         document.querySelectorAll('.btn-tool').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.btn-tool').forEach(b => b.classList.remove('active'));
@@ -209,8 +386,7 @@ const App = {
         // Player edit popup
         document.getElementById('btn-save-player').addEventListener('click', () => this._savePlayerEdit());
         document.getElementById('btn-cancel-player').addEventListener('click', () => this._hidePlayerEdit());
-        
-        // Close popup on outside click
+
         document.addEventListener('click', (e) => {
             const popup = document.getElementById('player-edit-popup');
             if (!popup.classList.contains('hidden') && !popup.contains(e.target)) {
@@ -220,21 +396,21 @@ const App = {
                 if (!clickedNode) this._hidePlayerEdit();
             }
         });
+
+        // Share roster link button
+        document.getElementById('btn-share-roster').addEventListener('click', () => this._copyShareLink());
     },
 
     _bindKeyboard() {
         document.addEventListener('keydown', (e) => {
-            // Undo: Ctrl+Z
             if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
                 e.preventDefault();
                 this.undo();
             }
-            // Redo: Ctrl+Y or Ctrl+Shift+Z
             if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
                 e.preventDefault();
                 this.redo();
             }
-            // Escape to deselect tool
             if (e.key === 'Escape') {
                 document.querySelector('[data-tool="select"]').click();
                 this._hidePlayerEdit();
@@ -247,12 +423,10 @@ const App = {
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                // Recalculate positions relative to new pitch size
                 const oldDim = Pitch.getDimensions();
                 const newDim = Pitch.resize();
                 this._syncOverlay();
 
-                // Scale player positions to new dimensions
                 if (oldDim.width && oldDim.height) {
                     const scaleX = newDim.width / oldDim.width;
                     const scaleY = newDim.height / oldDim.height;
@@ -260,17 +434,14 @@ const App = {
                         p.x *= scaleX;
                         p.y *= scaleY;
                     });
+                    Drawing.drawings.forEach(d => {
+                        if (d.start) { d.start.x *= scaleX; d.start.y *= scaleY; }
+                        if (d.end) { d.end.x *= scaleX; d.end.y *= scaleY; }
+                        if (d.path) d.path.forEach(p => { p.x *= scaleX; p.y *= scaleY; });
+                    });
                 }
 
                 this._rerenderPlayers();
-                // Scale drawings too
-                Drawing.drawings.forEach(d => {
-                    const scaleX = newDim.width / oldDim.width;
-                    const scaleY = newDim.height / oldDim.height;
-                    if (d.start) { d.start.x *= scaleX; d.start.y *= scaleY; }
-                    if (d.end) { d.end.x *= scaleX; d.end.y *= scaleY; }
-                    if (d.path) d.path.forEach(p => { p.x *= scaleX; p.y *= scaleY; });
-                });
                 Drawing.redraw();
             }, 150);
         });
@@ -279,7 +450,7 @@ const App = {
     _populateFormationSelect(totalPlayers) {
         const select = document.getElementById('formation-select');
         const formations = Formations.getFormations(totalPlayers);
-        select.innerHTML = formations.map((f, i) => 
+        select.innerHTML = formations.map((f, i) =>
             `<option value="${i}">${f.name}</option>`
         ).join('');
     },
@@ -287,7 +458,7 @@ const App = {
     _applyFormation(lines) {
         const { width, height } = Pitch.getDimensions();
         const positions = Formations.generatePositions(lines, width, height);
-        
+
         // Preserve existing names/numbers where possible
         const oldPlayers = Players.players;
         positions.forEach((pos, i) => {
@@ -322,7 +493,6 @@ const App = {
             teamName: document.getElementById('team-name').value,
         };
 
-        // Truncate future states
         this.history = this.history.slice(0, this.historyIndex + 1);
         this.history.push(JSON.stringify(state));
         if (this.history.length > this.maxHistory) this.history.shift();
@@ -332,7 +502,7 @@ const App = {
 
     _restoreState(stateStr) {
         const state = JSON.parse(stateStr);
-        
+
         this.colors = state.colors;
         document.getElementById('jersey-color').value = state.colors.jersey;
         document.getElementById('text-color').value = state.colors.text;
@@ -408,7 +578,6 @@ const App = {
                 </div>
             `).join('');
 
-            // Load buttons
             body.querySelectorAll('.btn-load-item').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const save = Storage.load(btn.dataset.id);
@@ -419,12 +588,11 @@ const App = {
                 });
             });
 
-            // Delete buttons
             body.querySelectorAll('.btn-delete-item').forEach(btn => {
                 btn.addEventListener('click', () => {
                     if (confirm('Delete this formation?')) {
                         Storage.delete(btn.dataset.id);
-                        this._showLoadDialog(); // Refresh
+                        this._showLoadDialog();
                     }
                 });
             });
@@ -436,7 +604,7 @@ const App = {
     _loadState(state) {
         document.getElementById('player-count').value = state.playerCount || state.players.length;
         this._populateFormationSelect(state.playerCount || state.players.length);
-        
+
         this.colors = state.colors || this.colors;
         document.getElementById('jersey-color').value = this.colors.jersey;
         document.getElementById('text-color').value = this.colors.text;
@@ -449,6 +617,7 @@ const App = {
 
         Drawing.setState(state.drawings);
         this._saveState();
+        this._persistTeams();
     },
 
     _hideModal() {
@@ -470,6 +639,7 @@ const App = {
         this._rerenderPlayers();
         this._hidePlayerEdit();
         this._saveState();
+        this._persistTeams();
     },
 
     _hidePlayerEdit() {
@@ -477,30 +647,52 @@ const App = {
         Players.editingPlayer = null;
     },
 
+    // === Share Link ===
+
+    async _copyShareLink() {
+        this._persistTeams();
+        const ok = await Sync.copyLink();
+        if (ok) {
+            this._showToast('Link copied! Open on any device to load all your teams.');
+        } else {
+            this._showToast('Could not copy — check browser permissions.');
+        }
+    },
+
+    // === Toast ===
+
+    _showToast(message) {
+        let toast = document.getElementById('toast-notification');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast-notification';
+            toast.className = 'toast';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = message;
+        toast.classList.add('visible');
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => toast.classList.remove('visible'), 3500);
+    },
+
     // === Export ===
 
     _exportPNG() {
         const { width, height } = Pitch.getDimensions();
-        
-        // Create export canvas combining pitch + drawings + players
+
         const exportCanvas = document.createElement('canvas');
-        const dpr = 2; // High quality export
+        const dpr = 2;
         exportCanvas.width = width * dpr;
         exportCanvas.height = height * dpr;
         const ctx = exportCanvas.getContext('2d');
         ctx.scale(dpr, dpr);
 
-        // Draw pitch
         ctx.drawImage(Pitch.canvas, 0, 0, width, height);
-
-        // Draw tactical drawings
         ctx.drawImage(Drawing.canvas, 0, 0, width, height);
 
-        // Draw players
         Players.players.forEach(player => {
             const bgColor = player.isGK ? this.colors.gk : this.colors.jersey;
-            
-            // Circle
+
             ctx.beginPath();
             ctx.arc(player.x, player.y, 18, 0, Math.PI * 2);
             ctx.fillStyle = bgColor;
@@ -509,14 +701,12 @@ const App = {
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Number
             ctx.fillStyle = this.colors.text;
             ctx.font = 'bold 11px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(player.number, player.x, player.y);
 
-            // Label
             const label = player.name || player.role;
             if (label) {
                 ctx.font = '9px Inter, sans-serif';
@@ -528,7 +718,6 @@ const App = {
             }
         });
 
-        // Team name watermark
         const teamName = document.getElementById('team-name').value;
         if (teamName) {
             ctx.font = 'bold 14px Inter, sans-serif';
@@ -538,7 +727,6 @@ const App = {
             ctx.fillText(teamName, 16, 16);
         }
 
-        // Download
         const link = document.createElement('a');
         link.download = `formation-${teamName || 'export'}.png`;
         link.href = exportCanvas.toDataURL('image/png');

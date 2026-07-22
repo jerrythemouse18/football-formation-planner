@@ -59,12 +59,22 @@
                     <button id="btn-reset-positions" class="btn btn-secondary btn-full">Reset Positions</button>
                 </section>
 
-                <!-- Team Customization -->
+                <!-- Team Selection -->
                 <section class="panel">
-                    <h3>Team Style</h3>
+                    <h3>Team</h3>
+                    <div class="form-group">
+                        <label for="team-select">Active Team</label>
+                        <div class="input-row">
+                            <select id="team-select"></select>
+                            <button id="btn-add-team" class="btn btn-small" title="Add Team">＋</button>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label for="team-name">Team Name</label>
-                        <input type="text" id="team-name" placeholder="My Team" maxlength="30">
+                        <div class="input-row">
+                            <input type="text" id="team-name" placeholder="My Team" maxlength="30">
+                            <button id="btn-delete-team" class="btn btn-small btn-danger" title="Delete Team">🗑️</button>
+                        </div>
                     </div>
                     <div class="form-group color-row">
                         <div>
@@ -101,8 +111,9 @@
 
                 <!-- Player List -->
                 <section class="panel">
-                    <h3>Players</h3>
+                    <h3>Players <small style="font-weight:normal;opacity:.6">(double-tap to edit)</small></h3>
                     <div id="player-list" class="player-list"></div>
+                    <button id="btn-share-roster" class="btn btn-primary btn-full" style="margin-top:8px">🔗 Copy Share Link</button>
                 </section>
             </aside>
 
@@ -150,6 +161,7 @@
 
     <script src="js/formations.js"></script>
     <script src="js/storage.js"></script>
+    <script src="js/sync.js"></script>
     <script src="js/pitch.js"></script>
     <script src="js/players.js"></script>
     <script src="js/drawing.js"></script>
