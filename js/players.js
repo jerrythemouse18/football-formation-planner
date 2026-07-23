@@ -86,11 +86,14 @@ const Players = {
             // Drag events
             this._setupDrag(node, i);
 
-            // Double-click to edit
+            // Double-click to edit (desktop)
             node.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 this._showEditPopup(i, e);
             });
+
+            // Long-press to edit (mobile)
+            this._setupLongPress(node, i);
 
             this.overlay.appendChild(node);
         });
@@ -112,6 +115,54 @@ const Players = {
     },
 
     /**
+     * Setup long-press to edit (mobile-friendly)
+     */
+    _setupLongPress(node, playerId) {
+        let pressTimer = null;
+        let didLongPress = false;
+        let startTouch = null;
+
+        const LONG_PRESS_MS = 500;
+        const MOVE_THRESHOLD = 10;
+
+        node.addEventListener('touchstart', (e) => {
+            didLongPress = false;
+            const touch = e.touches[0];
+            startTouch = { x: touch.clientX, y: touch.clientY };
+
+            pressTimer = setTimeout(() => {
+                didLongPress = true;
+                // Vibrate if available
+                if (navigator.vibrate) navigator.vibrate(30);
+                this._showEditPopup(playerId, { target: node, clientX: startTouch.x, clientY: startTouch.y });
+            }, LONG_PRESS_MS);
+        }, { passive: true });
+
+        node.addEventListener('touchmove', (e) => {
+            if (!startTouch) return;
+            const touch = e.touches[0];
+            const dx = Math.abs(touch.clientX - startTouch.x);
+            const dy = Math.abs(touch.clientY - startTouch.y);
+            if (dx > MOVE_THRESHOLD || dy > MOVE_THRESHOLD) {
+                clearTimeout(pressTimer);
+            }
+        }, { passive: true });
+
+        node.addEventListener('touchend', () => {
+            clearTimeout(pressTimer);
+            startTouch = null;
+        });
+
+        node.addEventListener('touchcancel', () => {
+            clearTimeout(pressTimer);
+            startTouch = null;
+        });
+
+        // Store flag so drag handler can skip if long-press fired
+        node._longPress = { get fired() { return didLongPress; }, reset() { didLongPress = false; } };
+    },
+
+    /**
      * Setup drag-and-drop for a player node
      */
     _setupDrag(node, playerId) {
@@ -120,6 +171,11 @@ const Players = {
 
         const onStart = (e) => {
             if (App.currentTool !== 'select') return;
+            // Don't start drag if long-press just fired
+            if (node._longPress && node._longPress.fired) {
+                node._longPress.reset();
+                return;
+            }
             e.preventDefault();
             isDragging = true;
             node.classList.add('dragging');
@@ -192,22 +248,40 @@ const Players = {
         document.getElementById('edit-player-number').value = player.number;
         document.getElementById('edit-player-role').value = player.role;
 
-        // Position popup near click
-        const rect = event.target.getBoundingClientRect();
-        popup.style.left = (rect.right + 10) + 'px';
-        popup.style.top = rect.top + 'px';
-
-        // Keep in viewport
-        popup.classList.remove('hidden');
-        const popupRect = popup.getBoundingClientRect();
-        if (popupRect.right > window.innerWidth) {
-            popup.style.left = (rect.left - popupRect.width - 10) + 'px';
+        // On mobile (narrow viewport), center the popup
+        const isMobile = window.innerWidth < 768;
+        if (isMobile) {
+            popup.style.left = '50%';
+            popup.style.top = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+        } else {
+            popup.style.transform = '';
+            // Position popup near click
+            const rect = event.target.getBoundingClientRect();
+            popup.style.left = (rect.right + 10) + 'px';
+            popup.style.top = rect.top + 'px';
         }
-        if (popupRect.bottom > window.innerHeight) {
-            popup.style.top = (window.innerHeight - popupRect.height - 10) + 'px';
+
+        popup.classList.remove('hidden');
+
+        // Desktop: keep in viewport
+        if (!isMobile) {
+            const popupRect = popup.getBoundingClientRect();
+            const rect = event.target.getBoundingClientRect();
+            if (popupRect.right > window.innerWidth) {
+                popup.style.left = (rect.left - popupRect.width - 10) + 'px';
+            }
+            if (popupRect.bottom > window.innerHeight) {
+                popup.style.top = (window.innerHeight - popupRect.height - 10) + 'px';
+            }
         }
 
         this.editingPlayer = playerId;
+        
+        // Auto-focus name field on mobile for keyboard
+        if (isMobile) {
+            setTimeout(() => document.getElementById('edit-player-name').focus(), 100);
+        }
     },
 
     /**
@@ -222,16 +296,20 @@ const Players = {
                 <span class="player-num" style="background:${player.isGK ? colors.gk : colors.jersey};color:${colors.text}">${player.number}</span>
                 <span class="player-info">${player.name || 'Player ' + player.number}</span>
                 <span class="player-role">${player.role}</span>
+                <button class="btn-edit-inline" title="Edit">✏️</button>
             `;
-            item.addEventListener('click', () => {
-                // Highlight on pitch
+            // Tap name/number to highlight on pitch
+            item.querySelector('.player-info').addEventListener('click', () => {
                 const node = this.overlay.querySelector(`[data-id="${i}"]`);
                 if (node) {
                     node.style.transform = 'translate(-50%, -50%) scale(1.4)';
-                    setTimeout(() => {
-                        node.style.transform = '';
-                    }, 500);
+                    setTimeout(() => { node.style.transform = ''; }, 500);
                 }
+            });
+            // Edit button opens popup
+            item.querySelector('.btn-edit-inline').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._showEditPopup(i, { target: item, clientX: 0, clientY: 0 });
             });
             container.appendChild(item);
         });

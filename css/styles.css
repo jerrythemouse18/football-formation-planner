@@ -688,3 +688,33 @@ html, body {
     flex: 1;
     min-width: 0;
 }
+
+/* === Inline Edit Button (sidebar player list) === */
+.btn-edit-inline {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 4px 6px;
+    border-radius: 4px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+.btn-edit-inline:hover,
+.btn-edit-inline:active {
+    opacity: 1;
+    background: rgba(255,255,255,0.1);
+}
+
+/* === Mobile popup centering fix === */
+@media (max-width: 767px) {
+    .player-edit-popup {
+        position: fixed !important;
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        width: calc(100vw - 40px);
+        max-width: 300px;
+        z-index: 1000;
+    }
+}
